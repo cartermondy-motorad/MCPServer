@@ -299,6 +299,22 @@ def find_pdf_partcompany(
     #     result["preview_base64"] = img_b64
     
     return result
+
+# ---------------------------------------------------
+# Tool to get IP address to add to firewall protection
+# ---------------------------------------------------
+@mcp.tool()
+def get_my_ip() -> dict:
+    """Returns the server's public IP address"""
+    import socket
+    import requests
+    
+    try:
+        # Get public IP
+        ip = requests.get('https://api.ipify.org').text
+        return {"public_ip": ip}
+    except Exception as e:
+        return {"error": str(e)}
 # ---------------------------------------------------------
 # Start MCP HTTP server
 # ---------------------------------------------------------
