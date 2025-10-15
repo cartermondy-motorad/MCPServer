@@ -4,7 +4,8 @@ from fastmcp import FastMCP
 import os
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
-import pyodbc
+# import pyodbc
+import pymssql
 import time, logging, uuid, json
 from datetime import datetime, timedelta
 from typing_extensions import Annotated
@@ -36,12 +37,22 @@ APPROVED_TABLES: Dict[str, set[str]] = {
 }
 
 
-def conn_str_for_db(db_name: str) -> str:
-    return (
-        "DRIVER={ODBC Driver 17 for SQL Server};"
-        f"SERVER={server};DATABASE={db_name};"
-        f"UID={username};PWD={password};"
-        "Encrypt=yes;TrustServerCertificate=no;Connection Timeout=15;"
+# def conn_str_for_db(db_name: str) -> str:
+#     return (
+#         "DRIVER={ODBC Driver 17 for SQL Server};"
+#         f"SERVER={server};DATABASE={db_name};"
+#         f"UID={username};PWD={password};"
+#         "Encrypt=yes;TrustServerCertificate=no;Connection Timeout=15;"
+#     )
+
+def get_connection(db_name: str):
+    return pymssql.connect(
+        server=server,
+        user=username,
+        password=password,
+        database=db_name,
+        timeout=15,
+        login_timeout=15
     )
 
 
@@ -50,13 +61,27 @@ mcp = FastMCP("DustAI")
 # ---------------------------------------------------------
 # Helper: very small query runner with auditing and timeouts
 # ---------------------------------------------------------
+# def run_query(db_name: str, sql: str, params: List[Any]) -> List[Dict[str, Any]]:
+#     t0 = time.time()
+#     with pyodbc.connect(conn_str_for_db(db_name), timeout=15) as conn:
+#         cur = conn.cursor()
+#         cur.execute(sql, params)
+#         cols = [c[0] for c in cur.description]
+#         rows = [dict(zip(cols, r)) for r in cur.fetchall()]
+#     dur_ms = int((time.time() - t0) * 1000)
+#     print(f"[AUDIT] db={db_name} rows={len(rows)} dur_ms={dur_ms} sql={sql[:160]!r} params={params!r}")
+#     return rows
+
 def run_query(db_name: str, sql: str, params: List[Any]) -> List[Dict[str, Any]]:
     t0 = time.time()
-    with pyodbc.connect(conn_str_for_db(db_name), timeout=15) as conn:
-        cur = conn.cursor()
+    conn = get_connection(db_name)
+    try:
+        cur = conn.cursor(as_dict=True)  # Returns rows as dictionaries
         cur.execute(sql, params)
-        cols = [c[0] for c in cur.description]
-        rows = [dict(zip(cols, r)) for r in cur.fetchall()]
+        rows = cur.fetchall()
+    finally:
+        conn.close()
+    
     dur_ms = int((time.time() - t0) * 1000)
     print(f"[AUDIT] db={db_name} rows={len(rows)} dur_ms={dur_ms} sql={sql[:160]!r} params={params!r}")
     return rows
