@@ -1,0 +1,5 @@
+.env
+.python-version
+start_local_dev.ps1
+.vscode/
+.venv/
